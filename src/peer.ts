@@ -10,7 +10,9 @@ export class Peer {
         this.port = port;
         this.peers = new Map();
         this.server = net.createServer(this.onConnection.bind(this));
-        this.server.listen(this.port);
+        this.server.listen(this.port, () => {
+            console.log(`Listening on port ${this.port}`);
+        });
     }
 
     private onConnection(socket: net.Socket): void {
@@ -28,6 +30,11 @@ export class Peer {
             this.peers.delete(peerHash);
         });
 
+        socket.on('error', (error) => {
+            console.log(`\nError with peer: ${peerHash} - ${error.message}`);
+            this.peers.delete(peerHash);
+        });
+
         console.log(`\nNew peer connected: ${peerHash}`);
     }
 
@@ -38,38 +45,37 @@ export class Peer {
             }
         });
     }
+
     public addPeer(peerInfo: string): void {
-      const [hostPort, peerHash] = peerInfo.split('/');
-      const [host, port] = hostPort.split(':');
-  
-      const peerPort = parseInt(port);
-      if (isNaN(peerPort) || peerPort < 0 || peerPort >= 65536) {
-          console.log('Invalid port number.');
-          return;
-      }
-  
-      const peerSocket = net.connect({ port: peerPort, host });
-  
-      peerSocket.on('connect', () => {
-          console.log(`Connected to peer: ${peerHash}`);
-      });
-  
-      peerSocket.on('data', (data) => {
-          const message = data.toString().trim();
-          const [sender, content] = message.split(': ');
-          console.log(`\n[${sender}]: ${content}`);
-      });
-  
-      peerSocket.on('close', () => {
-          console.log(`\nPeer disconnected: ${peerHash}`);
-          this.peers.delete(peerHash);
-      });
-  
-      peerSocket.on('error', (error) => {
-          console.log(`\nError connecting to peer: ${peerHash}`);
-      });
-  
-      this.peers.set(peerHash, peerSocket);
-  }
-  
-}  
+        const [peerHash, port] = peerInfo.split(':');
+        const peerPort = parseInt(port);
+        if (isNaN(peerPort) || peerPort < 0 || peerPort >= 65536) {
+            console.log('Invalid port number.');
+            return;
+        }
+
+        const peerSocket = net.connect({ port: peerPort, host: 'localhost' });
+
+        peerSocket.on('connect', () => {
+            console.log(`Connected to peer: ${peerHash}`);
+        });
+
+        peerSocket.on('data', (data) => {
+            const message = data.toString().trim();
+            const [sender, content] = message.split(': ');
+            console.log(`\n[${sender}]: ${content}`);
+        });
+
+        peerSocket.on('close', () => {
+            console.log(`\nPeer disconnected: ${peerHash}`);
+            this.peers.delete(peerHash);
+        });
+
+        peerSocket.on('error', (error) => {
+            console.log(`\nError connecting to peer: ${peerHash} - ${error.message}`);
+            this.peers.delete(peerHash);
+        });
+
+        this.peers.set(peerHash, peerSocket);
+    }
+}
